@@ -278,6 +278,59 @@ $(document).ready(function () {
         });
     }
 
+    function initializePhotoViewer() {
+        const photoModal = $('#photo-modal');
+        const modalImage = $('#modal-image');
+        const countdownTimer = $('#countdown-timer');
+        let countdownInterval;
+
+        function showPhoto(imageUrl) {
+            modalImage.attr('src', imageUrl);
+            photoModal.removeClass('hidden');
+            startCountdown(10);
+        }
+
+        function hidePhoto() {
+            photoModal.addClass('hidden');
+            modalImage.attr('src', '');
+            clearInterval(countdownInterval);
+        }
+
+        function startCountdown(seconds) {
+            let remainingSeconds = seconds;
+            updateCountdown(remainingSeconds);
+
+            countdownInterval = setInterval(() => {
+                remainingSeconds--;
+                if (remainingSeconds < 0) {
+                    clearInterval(countdownInterval);
+                    hidePhoto();
+                } else {
+                    updateCountdown(remainingSeconds);
+                }
+            }, 1000);
+        }
+
+        function updateCountdown(seconds) {
+            countdownTimer.text(`Closing in ${seconds} seconds`);
+        }
+
+        messagesList.on('click', '.view-photo-btn', function () {
+            const messageId = $(this).closest('li').data('id');
+            const message = messages.find(m => m.id === messageId);
+            if (message && message.imageUrl) {
+                showPhoto(message.imageUrl);
+            }
+        });
+
+        photoModal.on('click', function (e) {
+            if (e.target === this) {
+                hidePhoto();
+            }
+        });
+    }
+    // Initialize the photo viewer
+    initializePhotoViewer();
 
     // Helper function to convert base64 string to Uint8Array
     function urlB64ToUint8Array(base64String) {
