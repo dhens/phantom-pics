@@ -11,18 +11,40 @@ body, html {
     flex-direction: column;
 }
 
-#camera-view, #contacts-view {
+#menu {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px;
+    background-color: #f0f0f0;
+}
+
+#menu button {
+    padding: 10px;
+    font-size: 16px;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+}
+
+#menu button.active {
+    font-weight: bold;
+    border-bottom: 2px solid #000;
+}
+
+#camera-view, #send-photo-view, #contacts-view, #messages-view {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    overflow-y: auto;
 }
 
-#camera-preview {
+#camera-preview, #captured-image {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: auto;
+    max-height: 70vh;
+    object-fit: contain;
 }
 
 button {
@@ -41,14 +63,16 @@ button {
     display: none !important;
 }
 
-#contacts-list {
+#contacts-list, #messages-list {
     list-style-type: none;
     padding: 0;
     width: 80%;
     max-width: 300px;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
-#contacts-list li {
+#contacts-list li, #messages-list li {
     padding: 10px;
     border-bottom: 1px solid #ccc;
     cursor: pointer;
@@ -56,4 +80,51 @@ button {
 
 #contacts-list li.selected {
     background-color: #e0e0e0;
+}
+
+#send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#capture-canvas {
+    display: none;
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+#send-photo-view img {
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+}
+
+#cancel-btn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+}
+
+#send-btn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+}
+
+#send-btn:not(:disabled):hover, #cancel-btn:hover {
+    opacity: 0.8;
+}
+
+@media (max-width: 600px) {
+    #contacts-list, #messages-list {
+        width: 90%;
+    }
+
+    button {
+        width: 80%;
+        margin: 5px auto;
+    }
 }

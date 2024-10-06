@@ -11,16 +11,34 @@
 
 <body>
     <div id="app">
+        <nav id="menu">
+            <button id="camera-btn" class="active">Camera</button>
+            <button id="contacts-btn">Contacts</button>
+            <button id="messages-btn">Messages</button>
+        </nav>
         <div id="camera-view">
             <video id="camera-preview" autoplay playsinline></video>
+            <canvas id="capture-canvas" style="display:none;"></canvas>
             <button id="capture-btn">Capture</button>
         </div>
-        <div id="contacts-view" class="hidden">
+        <div id="send-photo-view" class="hidden">
+            <img id="captured-image" alt="Captured photo">
             <h2>Send to:</h2>
+            <ul id="contacts-list"></ul>
+            <button id="send-btn" disabled>Send</button>
+            <button id="cancel-btn">Cancel</button>
+        </div>
+        <div id="contacts-view" class="hidden">
+            <h2>Contacts</h2>
             <ul id="contacts-list">
                 <!-- Contacts will be populated here -->
             </ul>
-            <button id="send-btn">Send</button>
+        </div>
+        <div id="messages-view" class="hidden">
+            <h2>Messages</h2>
+            <ul id="messages-list">
+                <!-- Messages will be populated here -->
+            </ul>
         </div>
     </div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
