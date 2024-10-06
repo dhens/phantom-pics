@@ -22,8 +22,8 @@ import (
 )
 
 type PhotoUpload struct {
-	Image      string   `json:"image"`
-	Recipients []string `json:"recipients"`
+	Image      string `json:"image"`
+	Recipients []int  `json:"recipients"` // User IDs
 }
 
 type Subscription struct {
@@ -36,7 +36,7 @@ type Subscription struct {
 
 var VAPID_PUBKEY string
 
-var subscriptions = make(map[string]*webpush.Subscription)
+var subscriptions = make(map[int]*webpush.Subscription)
 
 func main() {
 	r := chi.NewRouter()
@@ -128,11 +128,11 @@ func handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// In a real app, you'd want to associate this with a user ID
-	userID := fmt.Sprintf("user_%d", len(subscriptions)+1)
+	userID := len(subscriptions) + 1
 	subscriptions[userID] = &sub
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"userId": userID})
+	json.NewEncoder(w).Encode(map[string]int{"userId": userID})
 }
 
 func sendPushNotification(sub *webpush.Subscription, photoUrl string) {
