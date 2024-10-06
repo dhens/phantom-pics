@@ -55,8 +55,8 @@ func main() {
 	// Create autocert manager
 	certManager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("pics.phantomfiles.io"), // Use your subdomain here
-		Cache:      autocert.DirCache("tls-certs"),                 // Folder to store certificates
+		HostPolicy: autocert.HostWhitelist("phantomfiles.io"), // Subdomains are not supported
+		Cache:      autocert.DirCache("tls-certs"),            // Folder to store certificates
 	}
 
 	server := &http.Server{
