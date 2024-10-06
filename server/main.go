@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -78,6 +79,7 @@ func handlePhotoUpload(w http.ResponseWriter, r *http.Request) {
 	var upload PhotoUpload
 	err := json.NewDecoder(r.Body).Decode(&upload)
 	if err != nil {
+		slog.Error(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
