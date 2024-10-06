@@ -42,3 +42,40 @@ self.addEventListener('push', function (event) {
         self.registration.showNotification('New Message', options)
     );
 });
+
+if ('serviceWorker' in navigator && 'PushManager' in window) {
+    console.log('Service Worker and Push is supported');
+
+    navigator.serviceWorker.register('/service-worker.js')
+        .then(function (registration) {
+            console.log('Service Worker registered');
+
+            // Request permission for push notifications
+            return registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlB64ToUint8Array('your_vapid_public_key')
+            });
+        })
+        .then(function (pushSubscription) {
+            console.log('Received PushSubscription: ', JSON.stringify(pushSubscription));
+
+            // Here, pushSubscription contains all the data you need:
+            // - endpoint
+            // - keys.p256dh
+            // - keys.auth
+
+            // Send this pushSubscription to your server
+            return fetch('/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(pushSubscription)
+            });
+        })
+        .catch(function (err) {
+            console.error('Failed to subscribe:', err);
+        });
+} else {
+    console.warn('Push messaging is not supported');
+}

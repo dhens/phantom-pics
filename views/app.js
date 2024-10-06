@@ -8,6 +8,8 @@ $(document).ready(function () {
     const sendBtn = $('#send-btn');
     const cancelBtn = $('#cancel-btn');
     const contactsList = $('#contacts-list');
+    const messagesView = $('#messages-view');
+    const messagesList = $('#messages-list');
 
     let stream;
     let capturedImageData;
@@ -19,6 +21,9 @@ $(document).ready(function () {
         { id: 2, name: 'Bob' },
         { id: 3, name: 'Charlie' }
     ];
+
+    // Sample messages (in a real app, this would come from a server)
+    let messages = [];
 
     function initCamera() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -55,13 +60,17 @@ $(document).ready(function () {
     function populateMessages() {
         messagesList.empty();
         messages.forEach(function (message) {
-            messagesList.append(`<li data-id="${message.id}">From: ${message.from} - Status: ${message.status}</li>`);
+            const listItem = $(`<li data-id="${message.id}">
+                From: ${message.from} - Status: ${message.status}
+                ${message.imageUrl ? `<img src="${message.imageUrl}" alt="Received photo" style="max-width: 100px; max-height: 100px;">` : ''}
+                ${message.status === 'received' ? '<button class="view-photo-btn">View Photo</button>' : ''}
+            </li>`);
+            messagesList.append(listItem);
         });
     }
 
     function sendPhoto(imageData, recipients) {
-        // In a real app, replace this URL with your actual backend endpoint
-        const backendUrl = 'https://api.example.com/send-photo';
+        const backendUrl = 'http://localhost:8080/send-photo';
 
         return fetch(backendUrl, {
             method: 'POST',
@@ -81,6 +90,14 @@ $(document).ready(function () {
             })
             .then(data => {
                 console.log('Photo sent successfully:', data);
+                // Add the sent photo to the messages list
+                messages.push({
+                    id: Date.now(),
+                    from: 'Me',
+                    status: 'sent',
+                    imageUrl: imageData
+                });
+                populateMessages();
                 return data;
             })
             .catch(error => {
@@ -146,7 +163,7 @@ $(document).ready(function () {
         $(this).addClass('active');
         cameraView.addClass('hidden');
         sendPhotoView.addClass('hidden');
-        contactsView.removeClass('hidden');
+        $('#contacts-view').removeClass('hidden');
         messagesView.addClass('hidden');
         populateContacts();
     });
@@ -156,9 +173,18 @@ $(document).ready(function () {
         $(this).addClass('active');
         cameraView.addClass('hidden');
         sendPhotoView.addClass('hidden');
-        contactsView.addClass('hidden');
+        $('#contacts-view').addClass('hidden');
         messagesView.removeClass('hidden');
         populateMessages();
+    });
+
+    // Handle viewing received photos
+    messagesList.on('click', '.view-photo-btn', function () {
+        const messageId = $(this).closest('li').data('id');
+        const message = messages.find(m => m.id === messageId);
+        if (message && message.imageUrl) {
+            window.open(message.imageUrl, '_blank');
+        }
     });
 
     // Initialize the app
@@ -166,7 +192,67 @@ $(document).ready(function () {
     populateContacts();
     populateMessages();
 
+    // Subscribe to push notifications
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+        navigator.serviceWorker.register('/service-worker.js')
+            .then(function (registration) {
+                console.log('Service Worker registered');
+                return registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlB64ToUint8Array('YOUR_VAPID_PUBLIC_KEY')
+                });
+            })
+            .then(function (subscription) {
+                console.log('Push subscription successful', subscription);
+                return fetch('http://localhost:8080/subscribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(subscription)
+                });
+            })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Failed to send subscription to server');
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                console.log('Subscription sent to server', data);
+            })
+            .catch(function (error) {
+                console.error('Error during push subscription:', error);
+            });
+    }
 
-    // Initialize the app
-    initCamera();
+    // Helper function to convert base64 string to Uint8Array
+    function urlB64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    // Listen for push notifications
+    navigator.serviceWorker.addEventListener('message', function (event) {
+        if (event.data && event.data.type === 'RECEIVED_PHOTO') {
+            const { from, imageUrl } = event.data;
+            messages.push({
+                id: Date.now(),
+                from: from,
+                status: 'received',
+                imageUrl: imageUrl
+            });
+            populateMessages();
+        }
+    });
 });
