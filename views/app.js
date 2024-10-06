@@ -217,38 +217,67 @@ $(document).ready(function () {
     populateMessages();
 
     // Subscribe to push notifications
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then(function (registration) {
-                console.log('Service Worker registered');
-                return registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlB64ToUint8Array('YOUR_VAPID_PUBLIC_KEY')
-                });
-            })
-            .then(function (subscription) {
-                console.log('Push subscription successful', subscription);
-                return fetch('https://pics.phantomfiles.io/subscribe', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(subscription)
-                });
-            })
-            .then(function (response) {
-                if (!response.ok) {
-                    throw new Error('Failed to send subscription to server');
-                }
-                return response.json();
-            })
-            .then(function (data) {
-                console.log('Subscription sent to server', data);
-            })
-            .catch(function (error) {
-                console.error('Error during push subscription:', error);
+    async function subscribeToPushNotifications() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in self)) {
+            console.warn('Push notifications are not supported in this environment');
+            return;
+        }
+
+        try {
+            // Fetch the VAPID public key from the server
+            const response = await fetch('https://pics.phantomfiles.io/vapid-public-key');
+            const publicVapidKey = await response.text();
+
+            // Register service worker
+            const registration = await navigator.serviceWorker.register('/service-worker.js');
+            console.log('Service Worker registered');
+
+            // Subscribe to push notifications
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlB64ToUint8Array(publicVapidKey)
             });
+            console.log('Push subscription successful', subscription);
+
+            // Send the subscription to the server
+            const subscribeResponse = await fetch('https://pics.phantomfiles.io/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(subscription)
+            });
+
+            if (!subscribeResponse.ok) {
+                throw new Error('Failed to send subscription to server');
+            }
+
+            const subscribeData = await subscribeResponse.json();
+            console.log('Subscription sent to server', subscribeData);
+        } catch (error) {
+            console.error('Error during push subscription:', error);
+        }
     }
+
+    // Call the function to subscribe to push notifications
+    subscribeToPushNotifications();
+
+    // Listen for push notifications
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', function (event) {
+            if (event.data && event.data.type === 'RECEIVED_PHOTO') {
+                const { from, imageUrl } = event.data;
+                messages.push({
+                    id: Date.now(),
+                    from: from,
+                    status: 'received',
+                    imageUrl: imageUrl
+                });
+                populateMessages();
+            }
+        });
+    }
+
 
     // Helper function to convert base64 string to Uint8Array
     function urlB64ToUint8Array(base64String) {
