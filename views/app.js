@@ -69,10 +69,10 @@ $(document).ready(function () {
         });
     }
 
-    function sendPhoto(imageData, recipients) {
-        const backendUrl = 'http://localhost:8080/send-photo';
+    async function sendPhoto(imageData, recipients) {
+        const backendUrl = 'https://pics.phantomfiles.io/send-photo';
 
-        return fetch(backendUrl, {
+        return await fetch(backendUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -105,6 +105,30 @@ $(document).ready(function () {
                 throw error;
             });
     }
+
+    sendBtn.on('click', async function () {
+        if (selectedContacts.length > 0) {
+            await sendPhoto(capturedImageData, selectedContacts)
+                .then((data) => {
+                    console.log('Photo sent successfully:', data);
+                    alert('Photo sent successfully!');
+                    // Add the sent photo to the messages list
+                    messages.push({
+                        id: Date.now(),
+                        from: 'Me',
+                        status: 'sent',
+                        imageUrl: capturedImageData
+                    });
+                    populateMessages();
+                    resetView();
+                })
+                .catch(error => {
+                    console.error('Error sending photo:', error);
+                    alert('Failed to send photo: ' + error.message);
+                });
+        }
+    });
+
 
     captureBtn.on('click', function () {
         capturedImageData = captureImage();
@@ -204,7 +228,7 @@ $(document).ready(function () {
             })
             .then(function (subscription) {
                 console.log('Push subscription successful', subscription);
-                return fetch('http://localhost:8080/subscribe', {
+                return fetch('https://pics.phantomfiles.io/subscribe', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
