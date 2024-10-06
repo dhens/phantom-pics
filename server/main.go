@@ -33,6 +33,8 @@ type Subscription struct {
 	} `json:"keys"`
 }
 
+var VAPID_PUBKEY string
+
 var subscriptions = make(map[string]*webpush.Subscription)
 
 func main() {
@@ -50,7 +52,7 @@ func main() {
 	r.Post("/send-photo", handlePhotoUpload)
 	r.Post("/subscribe", handleSubscribe)
 	r.Get("/photo/{filename}", servePhoto)
-	r.Get("/", helloWorld)
+	r.Get("/vapid-public-key", serveVapidPublicKey)
 
 	// Create autocert manager
 	certManager := autocert.Manager{
@@ -145,6 +147,7 @@ func sendPushNotification(sub *webpush.Subscription, photoUrl string) {
 		log.Fatalf("Failed to read public key: %v", err)
 	}
 	publicKeyBase64 := base64.StdEncoding.EncodeToString(publicKeyBytes)
+	VAPID_PUBKEY = publicKeyBase64
 
 	// In a real app, you'd want to store these securely
 	privateKey := privateKeyBase64
@@ -200,7 +203,22 @@ func servePhoto(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath)
 }
 
-func helloWorld(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Hello, world!")
+func serveVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+	var publicKeyBytes []byte
+	var err error
+	if len(VAPID_PUBKEY) == 0 {
+		publicKeyPath := "./vapid-keys/vapid_public_key.pem"
+		publicKeyBytes, err = os.ReadFile(publicKeyPath)
+		if err != nil {
+			http.Error(w, "File not found", http.StatusNotFound)
+		}
+		VAPID_PUBKEY = string(publicKeyBytes)
+	}
+	if err != nil {
+		http.Error(w, "Failed to read VAPID public key", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(publicKeyBytes)
 }
