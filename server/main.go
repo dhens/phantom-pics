@@ -16,6 +16,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 type PhotoUpload struct {
@@ -37,7 +39,7 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   []string{"https://pics.phantomfiles.io"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
@@ -48,9 +50,26 @@ func main() {
 	r.Post("/send-photo", handlePhotoUpload)
 	r.Post("/subscribe", handleSubscribe)
 	r.Get("/photo/{filename}", servePhoto)
+	r.Get("/", helloWorld)
 
-	fmt.Println("Server is running on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	// Create autocert manager
+	certManager := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist("pics.phantomfiles.io"), // Use your subdomain here
+		Cache:      autocert.DirCache("tls-certs"),                 // Folder to store certificates
+	}
+
+	server := &http.Server{
+		Addr:      ":https",
+		Handler:   r,
+		TLSConfig: certManager.TLSConfig(),
+	}
+
+	// Start HTTP server to redirect to HTTPS
+	go http.ListenAndServe(":http", certManager.HTTPHandler(nil))
+
+	fmt.Println("Server is running on https://pics.phantomfiles.io") // Replace with your domain
+	log.Fatal(server.ListenAndServeTLS("", ""))                      // Empty strings for cert and key files, as autocert manages them
 }
 
 func handlePhotoUpload(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +88,8 @@ func handlePhotoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := fmt.Sprintf("%d.jpg", time.Now().UnixNano())
+	id := uuid.New()
+	filename := fmt.Sprintf("%s:%d.jpg", id.String(), time.Now().UnixNano())
 	filepath := filepath.Join("uploads", filename)
 	err = os.MkdirAll("uploads", 0755)
 	if err != nil {
@@ -86,7 +106,7 @@ func handlePhotoUpload(w http.ResponseWriter, r *http.Request) {
 	// Send push notifications to recipients
 	for _, recipient := range upload.Recipients {
 		if sub, ok := subscriptions[recipient]; ok {
-			photoUrl := fmt.Sprintf("http://localhost:8080/photo/%s", filename)
+			photoUrl := fmt.Sprintf("https://pics.phantomfiles.io/photo/%s", filename)
 			sendPushNotification(sub, photoUrl)
 		}
 	}
@@ -178,4 +198,9 @@ func servePhoto(w http.ResponseWriter, r *http.Request) {
 
 	// Serve the file
 	http.ServeFile(w, r, filepath)
+}
+
+func helloWorld(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Hello, world!")
 }
