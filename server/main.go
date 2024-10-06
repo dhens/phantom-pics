@@ -60,7 +60,7 @@ func main() {
 	}
 
 	server := &http.Server{
-		Addr:      ":https",
+		Addr:      "0.0.0.0:443",
 		Handler:   r,
 		TLSConfig: certManager.TLSConfig(),
 	}
