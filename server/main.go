@@ -211,6 +211,7 @@ func serveVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 		publicKeyBytes, err = os.ReadFile(publicKeyPath)
 		if err != nil {
 			http.Error(w, "File not found", http.StatusNotFound)
+			return
 		}
 		VAPID_PUBKEY = string(publicKeyBytes)
 	}
