@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapClone PWA</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+
+<body>
+    <div id="app">
+        <div id="camera-view">
+            <video id="camera-preview" autoplay playsinline></video>
+            <button id="capture-btn">Capture</button>
+        </div>
+        <div id="contacts-view" class="hidden">
+            <h2>Send to:</h2>
+            <ul id="contacts-list">
+                <!-- Contacts will be populated here -->
+            </ul>
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
