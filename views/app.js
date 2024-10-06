@@ -202,15 +202,6 @@ $(document).ready(function () {
         populateMessages();
     });
 
-    // Handle viewing received photos
-    messagesList.on('click', '.view-photo-btn', function () {
-        const messageId = $(this).closest('li').data('id');
-        const message = messages.find(m => m.id === messageId);
-        if (message && message.imageUrl) {
-            window.open(message.imageUrl, '_blank');
-        }
-    });
-
     // Initialize the app
     initCamera();
     populateContacts();
