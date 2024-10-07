@@ -260,15 +260,15 @@ func servePhoto(w http.ResponseWriter, r *http.Request) {
 func serveVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 	var publicKeyBytes []byte
 	var err error
-	if len(VAPID_PUBKEY) == 0 {
-		publicKeyPath := "./vapid-keys/vapid_public_key.pem"
-		publicKeyBytes, err = os.ReadFile(publicKeyPath)
-		if err != nil {
-			http.Error(w, "File not found", http.StatusNotFound)
-			return
-		}
-		VAPID_PUBKEY = string(publicKeyBytes)
+	// if len(VAPID_PUBKEY) == 0 {
+	publicKeyPath := "./vapid-keys/vapid_public_key.pem"
+	publicKeyBytes, err = os.ReadFile(publicKeyPath)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
 	}
+	VAPID_PUBKEY = string(publicKeyBytes)
+	// }
 	if err != nil {
 		http.Error(w, "Failed to read VAPID public key", http.StatusInternalServerError)
 		return
