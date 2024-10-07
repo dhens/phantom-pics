@@ -8,74 +8,84 @@ const urlsToCache = [
     'https://code.jquery.com/jquery-3.6.0.min.js'
 ];
 
-self.addEventListener('install', function (event) {
+// Install event: cache assets
+self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(function (cache) {
-                console.log('Opened cache');
+            .then((cache) => {
+                console.log('Cache opened');
                 return cache.addAll(urlsToCache);
+            })
+            .then(() => self.skipWaiting()) // Ensure the new service worker becomes active immediately
+    );
+});
+
+// Activate event: clean up old caches
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('Deleting old cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => self.clients.claim()) // Take control of all clients immediately
+    );
+});
+
+
+// Push event: handle push notifications
+self.addEventListener('push', (event) => {
+    if (event.data) {
+        const pushData = event.data.json();
+        const options = {
+            body: `New photo from ${pushData.from}`,
+            icon: '/icon.png',
+            badge: '/badge.png',
+            image: pushData.imageUrl,
+            data: pushData
+        };
+        event.waitUntil(
+            self.registration.showNotification('New Photo Received', options)
+        );
+    }
+});
+
+// Notification click event: handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close(); // Close the notification
+
+    // This looks to see if the current is already open and focuses if it is
+    event.waitUntil(
+        clients.matchAll({ type: "window" })
+            .then((clientList) => {
+                for (const client of clientList) {
+                    if (client.url === '/' && 'focus' in client) {
+                        return client.focus();
+                    }
+                }
+                if (clients.openWindow) {
+                    return clients.openWindow('/');
+                }
             })
     );
 });
 
-self.addEventListener('fetch', function (event) {
-    event.respondWith(
-        caches.match(event.request)
-            .then(function (response) {
-                if (response) {
-                    return response;
-                }
-                return fetch(event.request);
-            }
-            )
-    );
-});
+// Function to convert base64 to Uint8Array (for VAPID public key)
+function urlB64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
 
-self.addEventListener('push', function (event) {
-    const options = {
-        body: event.data.text(),
-        icon: 'icon.png',
-        badge: 'badge.png'
-    };
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
 
-    event.waitUntil(
-        self.registration.showNotification('New Message', options)
-    );
-});
-
-if ('serviceWorker' in navigator && 'PushManager' in window) {
-    console.log('Service Worker and Push is supported');
-
-    navigator.serviceWorker.register('/service-worker.js')
-        .then(function (registration) {
-            console.log('Service Worker registered');
-
-            // Request permission for push notifications
-            return registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlB64ToUint8Array('your_vapid_public_key')
-            });
-        })
-        .then(function (pushSubscription) {
-            console.log('Received PushSubscription: ', JSON.stringify(pushSubscription));
-
-            // Here, pushSubscription contains all the data you need:
-            // - endpoint
-            // - keys.p256dh
-            // - keys.auth
-
-            // Send this pushSubscription to your server
-            return fetch('/subscribe', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(pushSubscription)
-            });
-        })
-        .catch(function (err) {
-            console.error('Failed to subscribe:', err);
-        });
-} else {
-    console.warn('Push messaging is not supported');
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
 }

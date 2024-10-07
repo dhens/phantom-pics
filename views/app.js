@@ -105,56 +105,34 @@ function resetView() {
     capturedImageData = null;
     $('#send-btn').prop('disabled', true);
 }
-
-// Push notification related functions
-function extractBase64FromPEM(pem) {
-    const lines = pem.split('\n');
-    return lines.slice(1, -2).join('');
-}
-
-function base64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
-        .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-}
-
 async function subscribeToPushNotifications() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         console.warn('Push notifications are not supported in this environment');
         return;
     }
-
     try {
         const response = await fetch('https://pics.phantomfiles.io/vapid-public-key');
         if (!response.ok) {
             throw new Error('Failed to fetch VAPID public key');
         }
-        const publicKeyPEM = await response.text();
-        const publicKeyBase64 = extractBase64FromPEM(publicKeyPEM);
+        const applicationServerKey = await response.text();
+        console.log('Received VAPID public key:', applicationServerKey);
 
         const registration = await navigator.serviceWorker.register('/service-worker.js');
         console.log('Service Worker registered');
 
         await navigator.serviceWorker.ready;
+        console.log('Service Worker is ready');
 
         let subscription = await registration.pushManager.getSubscription();
         if (!subscription) {
             subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: base64ToUint8Array(publicKeyBase64)
+                applicationServerKey
             });
-            console.log('Push subscription successful', subscription);
+            console.log('New push subscription created:', subscription);
         } else {
-            console.log('Using existing push subscription', subscription);
+            console.log('Using existing push subscription:', subscription);
         }
 
         const subscribeResponse = await fetch('https://pics.phantomfiles.io/subscribe', {
@@ -164,21 +142,19 @@ async function subscribeToPushNotifications() {
             },
             body: JSON.stringify(subscription)
         });
-
         if (!subscribeResponse.ok) {
             throw new Error('Failed to send subscription to server');
         }
-
         const subscribeData = await subscribeResponse.json();
-        console.log('Subscription sent to server', subscribeData);
+        console.log('Subscription sent to server, response:', subscribeData);
 
         if (Notification.permission !== 'granted') {
             const permission = await Notification.requestPermission();
+            console.log('Notification permission status:', permission);
             if (permission !== 'granted') {
                 console.warn('Notification permission not granted');
             }
         }
-
     } catch (error) {
         console.error('Error during push subscription:', error);
     }
@@ -307,8 +283,6 @@ $(document).ready(function () {
         populateMessages();
     });
 
-    // Subscribe to push notifications
-    subscribeToPushNotifications();
 });
 
 // Listen for push notifications
@@ -326,3 +300,7 @@ if ('serviceWorker' in navigator) {
         }
     });
 }
+
+// Subscribe to push notifications
+subscribeToPushNotifications();
+
