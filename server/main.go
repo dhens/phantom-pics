@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -222,5 +224,29 @@ func serveVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprint(w, VAPID_PUBKEY)
+	// Decode PEM
+	block, _ := pem.Decode([]byte(VAPID_PUBKEY))
+	if block == nil {
+		panic("failed to parse PEM block containing the public key")
+	}
+
+	// Parse the public key
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		panic("failed to parse DER encoded public key: " + err.Error())
+	}
+
+	// Convert to raw bytes
+	rawBytes, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		panic("failed to marshal public key: " + err.Error())
+	}
+
+	// Take the last 65 bytes
+	rawPublicKey := rawBytes[len(rawBytes)-65:]
+
+	// Base64 URL encode
+	encoded := base64.RawURLEncoding.EncodeToString(rawPublicKey)
+
+	fmt.Fprint(w, encoded)
 }
