@@ -115,7 +115,7 @@ func handlePhotoUpload(w http.ResponseWriter, r *http.Request) {
 	for _, recipient := range upload.Recipients {
 		if sub, ok := subscriptions[recipient]; ok {
 			photoUrl := fmt.Sprintf("https://pics.phantomfiles.io/photo/%s", filename)
-			sendPushNotification(sub, photoUrl)
+			sendPushNotification(sub, photoUrl, 1)
 		}
 	}
 
@@ -172,69 +172,57 @@ func pemToRawPrivateKey(pemKey string) ([]byte, error) {
 	return priv.D.Bytes(), nil
 }
 
-func sendPushNotification(sub *webpush.Subscription, photoUrl string) {
+func sendPushNotification(sub *webpush.Subscription, photoUrl string, senderName int) error {
 	// Read private key from file
 	privateKeyBytes, err := ioutil.ReadFile("./vapid-keys/vapid_private_key.pem")
 	if err != nil {
-		log.Fatalf("Failed to read private key: %v", err)
+		return fmt.Errorf("failed to read private key: %v", err)
 	}
 	privateKeyRaw, err := pemToRawPrivateKey(string(privateKeyBytes))
 	if err != nil {
-		log.Printf("Failed to convert private key pem to raw bytes: %v", err)
-		return
+		return fmt.Errorf("failed to convert private key pem to raw bytes: %v", err)
 	}
 	privateKeyBase64 := base64.RawURLEncoding.EncodeToString(privateKeyRaw)
 
 	// Read public key from file
 	publicKeyBytes, err := ioutil.ReadFile("./vapid-keys/vapid_public_key.pem")
 	if err != nil {
-		log.Fatalf("Failed to read public key: %v", err)
+		return fmt.Errorf("failed to read public key: %v", err)
 	}
 	publicKeyRaw, err := pemToRawPublicKey(string(publicKeyBytes))
 	if err != nil {
-		log.Printf("Failed to convert public key pem to raw bytes: %v", err)
-		return
+		return fmt.Errorf("failed to convert public key pem to raw bytes: %v", err)
 	}
 	publicKeyBase64 := base64.RawURLEncoding.EncodeToString(publicKeyRaw)
-
-	VAPID_PUBKEY = publicKeyBase64
-
-	// In a real app, you'd want to store these securely
-	privateKey := privateKeyBase64
-	publicKey := publicKeyBase64
-
-	privKey, pubKey, _ := webpush.GenerateVAPIDKeys()
-	fmt.Printf("FAKE: privkey: %+v\npubkey: %+v\n", privKey, pubKey)
-	fmt.Printf("REAL: privkey: %+v\npubkey: %+v\n\n", privateKey, publicKey)
 
 	// Prepare the notification payload
 	payload := map[string]interface{}{
 		"type":     "RECEIVED_PHOTO",
-		"from":     "Someone", // In a real app, this would be the sender's name
+		"from":     senderName,
 		"imageUrl": photoUrl,
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("Failed to marshal notification payload: %v", err)
-		return
+		return fmt.Errorf("failed to marshal notification payload: %v", err)
 	}
 
 	// Send Notification
 	resp, err := webpush.SendNotification(payloadBytes, sub, &webpush.Options{
 		Subscriber:      "notifications@phantompics.pages.dev",
-		VAPIDPublicKey:  publicKey,
-		VAPIDPrivateKey: privateKey,
+		VAPIDPublicKey:  publicKeyBase64,
+		VAPIDPrivateKey: privateKeyBase64,
 		TTL:             30,
 	})
 	if err != nil {
-		log.Printf("Failed to send notification: %v", err)
-		return
+		return fmt.Errorf("failed to send notification: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		log.Printf("Unexpected status code: %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
+
+	return nil
 }
 
 func servePhoto(w http.ResponseWriter, r *http.Request) {
