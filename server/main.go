@@ -157,6 +157,10 @@ func sendPushNotification(sub *webpush.Subscription, photoUrl string) {
 	privateKey := privateKeyBase64
 	publicKey := publicKeyBase64
 
+	privKey, pubKey, _ := webpush.GenerateVAPIDKeys()
+	fmt.Printf("FAKE: privkey: %+v\npubkey: %+v\n", privKey, pubKey)
+	fmt.Printf("REAL: privkey: %+v\npubkey: %+v\n\n", privateKey, publicKey)
+
 	// Prepare the notification payload
 	payload := map[string]interface{}{
 		"type":     "RECEIVED_PHOTO",
