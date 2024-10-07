@@ -139,29 +139,37 @@ func handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]int{"userId": userID})
 }
 
-func pemToRawBytes(pemKey string) ([]byte, error) {
-	// Decode PEM block
+func pemToRawPublicKey(pemKey string) ([]byte, error) {
 	block, _ := pem.Decode([]byte(pemKey))
 	if block == nil {
-		return nil, fmt.Errorf("failed to parse PEM block containing the key")
+		return nil, fmt.Errorf("failed to parse PEM block containing the public key")
 	}
 
-	// Parse the key
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse DER encoded public key: %v", err)
 	}
 
-	// Assert that the key is an ECDSA key
 	ecdsaPub, ok := pub.(*ecdsa.PublicKey)
 	if !ok {
 		return nil, fmt.Errorf("key is not an ECDSA public key")
 	}
 
-	// Marshal the key to raw bytes
-	rawBytes := elliptic.Marshal(ecdsaPub.Curve, ecdsaPub.X, ecdsaPub.Y)
+	return elliptic.Marshal(ecdsaPub.Curve, ecdsaPub.X, ecdsaPub.Y), nil
+}
 
-	return rawBytes, nil
+func pemToRawPrivateKey(pemKey string) ([]byte, error) {
+	block, _ := pem.Decode([]byte(pemKey))
+	if block == nil {
+		return nil, fmt.Errorf("failed to parse PEM block containing the private key")
+	}
+
+	priv, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse EC private key: %v", err)
+	}
+
+	return priv.D.Bytes(), nil
 }
 
 func sendPushNotification(sub *webpush.Subscription, photoUrl string) {
@@ -170,9 +178,9 @@ func sendPushNotification(sub *webpush.Subscription, photoUrl string) {
 	if err != nil {
 		log.Fatalf("Failed to read private key: %v", err)
 	}
-	privateKeyRaw, err := pemToRawBytes(string(privateKeyBytes))
+	privateKeyRaw, err := pemToRawPrivateKey(string(privateKeyBytes))
 	if err != nil {
-		log.Printf("Failed to convert pem to raw bytes: %v", err)
+		log.Printf("Failed to convert private key pem to raw bytes: %v", err)
 		return
 	}
 	privateKeyBase64 := base64.RawURLEncoding.EncodeToString(privateKeyRaw)
@@ -182,13 +190,13 @@ func sendPushNotification(sub *webpush.Subscription, photoUrl string) {
 	if err != nil {
 		log.Fatalf("Failed to read public key: %v", err)
 	}
-	publicKeyRaw, err := pemToRawBytes(string(publicKeyBytes))
+	publicKeyRaw, err := pemToRawPublicKey(string(publicKeyBytes))
 	if err != nil {
-		log.Printf("Failed to convert pem to raw bytes: %v", err)
+		log.Printf("Failed to convert public key pem to raw bytes: %v", err)
 		return
 	}
-
 	publicKeyBase64 := base64.RawURLEncoding.EncodeToString(publicKeyRaw)
+
 	VAPID_PUBKEY = publicKeyBase64
 
 	// In a real app, you'd want to store these securely
