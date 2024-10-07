@@ -222,6 +222,5 @@ func serveVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write(publicKeyBytes)
+	fmt.Fprint(w, VAPID_PUBKEY)
 }
