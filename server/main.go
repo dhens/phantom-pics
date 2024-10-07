@@ -143,14 +143,14 @@ func sendPushNotification(sub *webpush.Subscription, photoUrl string) {
 	if err != nil {
 		log.Fatalf("Failed to read private key: %v", err)
 	}
-	privateKeyBase64 := base64.StdEncoding.EncodeToString(privateKeyBytes)
+	privateKeyBase64 := base64.RawURLEncoding.EncodeToString(privateKeyBytes)
 
 	// Read public key from file
 	publicKeyBytes, err := ioutil.ReadFile("./vapid-keys/vapid_public_key.pem")
 	if err != nil {
 		log.Fatalf("Failed to read public key: %v", err)
 	}
-	publicKeyBase64 := base64.StdEncoding.EncodeToString(publicKeyBytes)
+	publicKeyBase64 := base64.RawURLEncoding.EncodeToString(publicKeyBytes)
 	VAPID_PUBKEY = publicKeyBase64
 
 	// In a real app, you'd want to store these securely
