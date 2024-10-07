@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -137,20 +139,56 @@ func handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]int{"userId": userID})
 }
 
+func pemToRawBytes(pemKey string) ([]byte, error) {
+	// Decode PEM block
+	block, _ := pem.Decode([]byte(pemKey))
+	if block == nil {
+		return nil, fmt.Errorf("failed to parse PEM block containing the key")
+	}
+
+	// Parse the key
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse DER encoded public key: %v", err)
+	}
+
+	// Assert that the key is an ECDSA key
+	ecdsaPub, ok := pub.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("key is not an ECDSA public key")
+	}
+
+	// Marshal the key to raw bytes
+	rawBytes := elliptic.Marshal(ecdsaPub.Curve, ecdsaPub.X, ecdsaPub.Y)
+
+	return rawBytes, nil
+}
+
 func sendPushNotification(sub *webpush.Subscription, photoUrl string) {
 	// Read private key from file
 	privateKeyBytes, err := ioutil.ReadFile("./vapid-keys/vapid_private_key.pem")
 	if err != nil {
 		log.Fatalf("Failed to read private key: %v", err)
 	}
-	privateKeyBase64 := base64.RawURLEncoding.EncodeToString(privateKeyBytes)
+	privateKeyRaw, err := pemToRawBytes(string(privateKeyBytes))
+	if err != nil {
+		log.Printf("Failed to convert pem to raw bytes: %v", err)
+		return
+	}
+	privateKeyBase64 := base64.RawURLEncoding.EncodeToString(privateKeyRaw)
 
 	// Read public key from file
 	publicKeyBytes, err := ioutil.ReadFile("./vapid-keys/vapid_public_key.pem")
 	if err != nil {
 		log.Fatalf("Failed to read public key: %v", err)
 	}
-	publicKeyBase64 := base64.RawURLEncoding.EncodeToString(publicKeyBytes)
+	publicKeyRaw, err := pemToRawBytes(string(publicKeyBytes))
+	if err != nil {
+		log.Printf("Failed to convert pem to raw bytes: %v", err)
+		return
+	}
+
+	publicKeyBase64 := base64.RawURLEncoding.EncodeToString(publicKeyRaw)
 	VAPID_PUBKEY = publicKeyBase64
 
 	// In a real app, you'd want to store these securely
