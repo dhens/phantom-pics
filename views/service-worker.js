@@ -38,20 +38,42 @@ self.addEventListener('activate', (event) => {
 
 
 // Push event: handle push notifications
-self.addEventListener('push', (event) => {
-    if (event.data) {
-        const pushData = event.data.json();
-        const options = {
-            body: `New photo from ${pushData.from}`,
-            icon: '/icon.png',
-            badge: '/badge.png',
-            image: pushData.imageUrl,
-            data: pushData
+self.addEventListener('push', async (event) => {
+    console.log('[Service Worker] Push Received.');
+    console.log(`[Service Worker] Push had this data: "${event.data.text()}"`);
+
+    let pushData;
+    try {
+        pushData = await event.data.json()
+    } catch (e) {
+        console.error('Error parsing push data:', e);
+        pushData = {
+            from: 'Unknown',
+            imageUrl: 'default-image-url'
         };
-        event.waitUntil(
-            self.registration.showNotification('New Photo Received', options)
-        );
     }
+
+    const timestamp = new Date().toLocaleTimeString();
+    const title = `New Pic from ${pushData.from} at ${timestamp}`;
+    const options = {
+        body: `You received a new photo! (Test notification ${timestamp})`,
+        icon: '/icon.png',
+        badge: '/badge.png',
+        image: pushData.imageUrl,
+        data: pushData,
+        tag: 'test-notification',
+        renotify: true
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(title, options)
+            .then(() => {
+                console.log('Notification successfully shown with title:', title);
+            })
+            .catch((error) => {
+                console.error('Error showing notification:', error);
+            })
+    );
 });
 
 // Notification click event: handle notification clicks
@@ -88,4 +110,91 @@ function urlB64ToUint8Array(base64String) {
         outputArray[i] = rawData.charCodeAt(i);
     }
     return outputArray;
+}
+
+let badgeCount = 0;
+
+self.addEventListener('push', (event) => {
+    console.log('[Service Worker] Push Received.');
+    console.log(`[Service Worker] Push had this data: "${event.data.text()}"`);
+
+    let pushData;
+    try {
+        pushData = JSON.parse(event.data.text());
+    } catch (e) {
+        console.error('Error parsing push data:', e);
+        pushData = {
+            from: 'Unknown',
+            imageUrl: 'default-image-url'
+        };
+    }
+
+    const timestamp = new Date().toLocaleTimeString();
+    const title = `New Pic from ${pushData.from} at ${timestamp}`;
+    const options = {
+        body: `You received a new photo! (Test notification ${timestamp})`,
+        icon: '/icon.png',
+        badge: '/badge.png',
+        image: pushData.imageUrl,
+        data: pushData,
+        tag: 'photo-notification',
+        renotify: true
+    };
+
+    badgeCount++;
+
+    event.waitUntil(
+        Promise.all([
+            self.registration.showNotification(title, options),
+            updateBadge()
+        ])
+            .then(() => {
+                console.log('Notification shown and badge updated');
+            })
+            .catch((error) => {
+                console.error('Error showing notification or updating badge:', error);
+            })
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    console.log('[Service Worker] Notification click received.');
+
+    event.notification.close();
+
+    const photoUrl = event.notification.data.imageUrl;
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window' })
+            .then((clientList) => {
+                for (const client of clientList) {
+                    if (client.url === '/' && 'focus' in client) {
+                        client.focus();
+                        client.postMessage({
+                            type: 'LOAD_PHOTO',
+                            photoUrl: photoUrl
+                        });
+                        return;
+                    }
+                }
+                if (clients.openWindow) {
+                    return clients.openWindow('/?photo=' + encodeURIComponent(photoUrl));
+                }
+            })
+            .then(() => {
+                badgeCount = Math.max(0, badgeCount - 1);
+                return updateBadge();
+            })
+    );
+});
+
+function updateBadge() {
+    if ('setAppBadge' in navigator) {
+        if (badgeCount > 0) {
+            return navigator.setAppBadge(badgeCount);
+        } else {
+            return navigator.clearAppBadge();
+        }
+    }
+    return Promise.resolve();
 }

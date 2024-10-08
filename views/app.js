@@ -105,6 +105,7 @@ function resetView() {
     capturedImageData = null;
     $('#send-btn').prop('disabled', true);
 }
+
 async function subscribeToPushNotifications() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         console.warn('Push notifications are not supported in this environment');
@@ -286,21 +287,19 @@ $(document).ready(function () {
 });
 
 // Listen for push notifications
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', function (event) {
-        if (event.data && event.data.type === 'RECEIVED_PHOTO') {
-            const { from, imageUrl } = event.data;
-            messages.push({
-                id: Date.now(),
-                from: from,
-                status: 'received',
-                imageUrl: imageUrl
-            });
-            populateMessages();
-        }
-    });
-}
+navigator.serviceWorker.addEventListener('message', function (event) {
+    console.log("new message from service worker", event)
+    if (event.data && event.data.type === 'RECEIVED_PHOTO') {
+        const { from, imageUrl } = event.data;
+        messages.push({
+            id: Date.now(),
+            from: from,
+            status: 'received',
+            imageUrl: imageUrl
+        });
+        populateMessages();
+    }
+});
 
 // Subscribe to push notifications
 subscribeToPushNotifications();
-
