@@ -7,6 +7,7 @@ const urlsToCache = [
     '/manifest.json',
     'https://code.jquery.com/jquery-3.6.0.min.js'
 ];
+let badgeCount = 0;
 
 // Install event: cache assets
 self.addEventListener('install', (event) => {
@@ -65,6 +66,8 @@ self.addEventListener('push', async (event) => {
         renotify: true
     };
 
+    badgeCount++;
+
     event.waitUntil(
         self.registration.showNotification(title, options)
             .then(() => {
@@ -72,26 +75,6 @@ self.addEventListener('push', async (event) => {
             })
             .catch((error) => {
                 console.error('Error showing notification:', error);
-            })
-    );
-});
-
-// Notification click event: handle notification clicks
-self.addEventListener('notificationclick', (event) => {
-    event.notification.close(); // Close the notification
-
-    // This looks to see if the current is already open and focuses if it is
-    event.waitUntil(
-        clients.matchAll({ type: "window" })
-            .then((clientList) => {
-                for (const client of clientList) {
-                    if (client.url === '/' && 'focus' in client) {
-                        return client.focus();
-                    }
-                }
-                if (clients.openWindow) {
-                    return clients.openWindow('/');
-                }
             })
     );
 });
@@ -112,50 +95,6 @@ function urlB64ToUint8Array(base64String) {
     return outputArray;
 }
 
-let badgeCount = 0;
-
-self.addEventListener('push', (event) => {
-    console.log('[Service Worker] Push Received.');
-    console.log(`[Service Worker] Push had this data: "${event.data.text()}"`);
-
-    let pushData;
-    try {
-        pushData = JSON.parse(event.data.text());
-    } catch (e) {
-        console.error('Error parsing push data:', e);
-        pushData = {
-            from: 'Unknown',
-            imageUrl: 'default-image-url'
-        };
-    }
-
-    const timestamp = new Date().toLocaleTimeString();
-    const title = `New Pic from ${pushData.from} at ${timestamp}`;
-    const options = {
-        body: `You received a new photo! (Test notification ${timestamp})`,
-        icon: '/icon.png',
-        badge: '/badge.png',
-        image: pushData.imageUrl,
-        data: pushData,
-        tag: 'photo-notification',
-        renotify: true
-    };
-
-    badgeCount++;
-
-    event.waitUntil(
-        Promise.all([
-            self.registration.showNotification(title, options),
-            updateBadge()
-        ])
-            .then(() => {
-                console.log('Notification shown and badge updated');
-            })
-            .catch((error) => {
-                console.error('Error showing notification or updating badge:', error);
-            })
-    );
-});
 
 self.addEventListener('notificationclick', (event) => {
     console.log('[Service Worker] Notification click received.');

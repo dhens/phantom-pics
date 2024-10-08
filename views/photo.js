@@ -10,12 +10,6 @@ function loadPhoto(photoUrl) {
     }
 }
 
-// Listen for messages from the service worker
-navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'LOAD_PHOTO') {
-        loadPhoto(event.data.photoUrl);
-    }
-});
 
 // Check for photo parameter in URL when page loads
 $(document).ready(() => {

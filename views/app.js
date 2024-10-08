@@ -245,7 +245,6 @@ $(document).ready(function () {
         if (selectedContacts.length > 0) {
             try {
                 await sendPhoto(capturedImageData, selectedContacts);
-                alert('Photo sent successfully!');
                 resetView();
             } catch (error) {
                 alert('Failed to send photo: ' + error.message);
